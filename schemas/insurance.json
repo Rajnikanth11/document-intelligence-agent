@@ -1,0 +1,16 @@
+{
+  "fields": {
+    "Applicant Name": "string",
+    "Policy Type": "string",
+    "Sum Insured": "number",
+    "Construction Type": "string"
+  },
+  "rules": {
+    "Sum Insured": {
+      "max": 5000000
+    },
+    "Construction Type": {
+      "required": true
+    }
+  }
+}
