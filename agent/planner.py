@@ -1,36 +1,36 @@
-from openai import OpenAI
-from config import DEEPSEEK_API_KEY, DEEPSEEK_MODEL
+import json
+from llm.ollama_client import query_ollama
 
-client = OpenAI(
-    api_key=DEEPSEEK_API_KEY,
-    base_url="https://api.deepseek.com"
-)
 
 class Planner:
 
-    def decide(self, goal, memory):
+    def decide(self, goal: str, memory: dict) -> dict:
 
-        system_prompt = '''
+        prompt = f"""
 You are a planning agent.
-Return ONLY JSON with:
-{
+Return ONLY valid JSON with this exact structure:
+{{
   "action": ""
-}
+}}
+
 Possible actions:
-classify_document
-extract_fields
-validate_fields
-generate_decision
-finish
-'''
+- classify_document
+- extract_fields
+- validate_fields
+- generate_decision
+- finish
 
-        response = client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Goal:{goal}\nMemory:{memory}"}
-            ],
-            temperature=0
-        )
+Goal: {goal}
+Memory: {json.dumps(memory)}
+"""
 
-        return eval(response.choices[0].message.content)
+        result = query_ollama(prompt)
+
+        # Strip markdown code fences if present (e.g. ```json ... ```)
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("```")[1]
+            if result.startswith("json"):
+                result = result[4:]
+
+        return json.loads(result.strip())

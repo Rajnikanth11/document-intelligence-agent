@@ -32,17 +32,33 @@ class DocumentAgent:
                 )
                 self.memory.save("extracted_fields", fields)
 
+            elif action == "extract_invoice_fields":
+                invoice_fields = self.tools.extract_invoice_fields(document_text)
+                self.memory.save("extracted_fields", invoice_fields)
+
             elif action == "validate_fields":
-                results = self.tools.validate_fields(
-                    self.memory.get("extracted_fields"),
-                    self.schema["rules"]
-                )
+                extracted = self.memory.get("extracted_fields")
+                if extracted is None:
+                    # Fields not extracted yet — force that step first
+                    extracted = self.tools.extract_fields(
+                        document_text,
+                        self.schema["fields"]
+                    )
+                    self.memory.save("extracted_fields", extracted)
+                results = self.tools.validate_fields(extracted, self.schema["rules"])
                 self.memory.save("validation_results", results)
 
             elif action == "generate_decision":
-                decision = self.tools.generate_decision(
-                    self.memory.get("validation_results")
-                )
+                validation = self.memory.get("validation_results")
+                if validation is None:
+                    # Validation not done yet — run it now
+                    extracted = self.memory.get("extracted_fields") or self.tools.extract_fields(
+                        document_text, self.schema["fields"]
+                    )
+                    self.memory.save("extracted_fields", extracted)
+                    validation = self.tools.validate_fields(extracted, self.schema["rules"])
+                    self.memory.save("validation_results", validation)
+                decision = self.tools.generate_decision(validation)
                 self.memory.save("final_decision", decision)
 
             elif action == "finish":

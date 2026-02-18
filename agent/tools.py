@@ -1,4 +1,6 @@
 import re
+import json
+from llm.ollama_client import query_ollama
 
 class Tools:
 
@@ -16,6 +18,8 @@ class Tools:
         return extracted
 
     def validate_fields(self, fields: dict, rules: dict) -> dict:
+        if not fields:
+            return {field: "MISSING" for field in rules}
         results = {}
         for field, rule in rules.items():
             value = fields.get(field)
@@ -36,7 +40,37 @@ class Tools:
 
         return results
 
+    def extract_invoice_fields(self, text: str) -> dict:
+        prompt = f"""
+You are an invoice extraction engine.
+
+Extract the following fields and return ONLY valid JSON.
+
+Required fields:
+- seller_name
+- buyer_name
+- invoice_number
+- invoice_date
+- total_amount
+- amount_due
+- currency
+
+Convert numbers properly and use ISO date format (YYYY-MM-DD).
+
+Document:
+{text}
+"""
+        response = query_ollama(prompt)
+
+        match = re.search(r"\{.*\}", response, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        else:
+            raise ValueError("No valid JSON found in Ollama response")
+
     def generate_decision(self, validation_results: dict) -> dict:
+        if not validation_results:
+            return {"decision": "REVIEW_REQUIRED", "reasons": ["validation_not_run"]}
         failed = [k for k, v in validation_results.items() if v != "OK"]
 
         if failed:
